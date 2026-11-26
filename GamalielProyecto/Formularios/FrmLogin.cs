@@ -136,6 +136,7 @@ public class FrmLogin : Form
         };
         btnIniciarSesion.Click += btnIniciarSesion_Click;
 
+
         pnlTarjeta.Controls.AddRange(new Control[]
         {
             lblCorreo, campoCorreo,
