@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 using RefugioGamaliel.Utilidades;
+using RefugioGamaliel.Logica;
 
 namespace RefugioGamaliel.Formularios;
 
@@ -30,7 +31,9 @@ public class FrmDonaciones : Form
     public FrmDonaciones()
     {
         InicializarComponentes();
-        CargarDatosEjemplo();
+        btnRegistrarDonacion.Click += BtnRegistrarDonacion_Click;
+        CargarAlimentos();
+        CargarHistorial();
     }
 
     private void InicializarComponentes()
@@ -313,10 +316,65 @@ public class FrmDonaciones : Form
         txtDonante.Focus();
     }
 
-    private void CargarDatosEjemplo()
+    private void CargarAlimentos()
     {
-        dgvDonaciones.Rows.Add("1", "Veterinaria San Roque", "Empresa", "Croquetas Adulto", "50.00 kg", "18/11/2026", "John Alan Mamani");
-        dgvDonaciones.Rows.Add("2", "Anónimo", "Persona", "Alimento Balanceado", "15.50 kg", "20/11/2026", "Emilio Salguero");
-        dgvDonaciones.Rows.Add("3", "Colegio Bolivia", "Institución", "Croquetas Cachorro", "30.00 kg", "22/11/2026", "John David Castillo");
+        var lista = InventarioService.ListarAlimentos(out string error);
+        if (error != "")
+        {
+            MessageBox.Show(error, "Donaciones", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        cmbAlimento.DataSource = null;
+        cmbAlimento.DisplayMember = "Nombre";
+        cmbAlimento.ValueMember = "IdAlimento";
+        cmbAlimento.DataSource = lista;
+    }
+
+    private void CargarHistorial()
+    {
+        var lista = DonacionService.ListarDonaciones(out string error);
+        if (error != "")
+        {
+            MessageBox.Show(error, "Donaciones", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        dgvDonaciones.Rows.Clear();
+        foreach (var d in lista)
+        {
+            dgvDonaciones.Rows.Add(d.IdDonacion, d.Donante, d.Tipo, d.Alimento,
+                d.CantidadKg.ToString("0.00") + " kg", d.Fecha.ToString("dd/MM/yyyy"), d.RegistradoPor);
+        }
+    }
+
+    private void BtnRegistrarDonacion_Click(object? sender, EventArgs e)
+    {
+        if (cmbAlimento.SelectedValue is not int idAlimento)
+        {
+            MessageBox.Show("Seleccione un alimento. Si no hay, créelo primero en Inventario.",
+                "Donaciones", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (!decimal.TryParse(txtCantidadKg.Text.Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out decimal cantidad))
+        {
+            MessageBox.Show("Escriba una cantidad válida en kg.", "Donaciones",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string tipo = cmbTipoDonante.SelectedItem?.ToString() ?? "Persona";
+        if (!DonacionService.RegistrarDonacion(txtDonante.Text, tipo, dtpFechaDonacion.Value,
+                idAlimento, cantidad, out string error))
+        {
+            MessageBox.Show(error, "Donaciones", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        MessageBox.Show("Donación registrada y existencias actualizadas.", "Donaciones",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        LimpiarFormulario();
+        CargarAlimentos();
+        CargarHistorial();
     }
 }

@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 using RefugioGamaliel.Utilidades;
+using RefugioGamaliel.Logica;
 
 namespace RefugioGamaliel.Formularios;
 
@@ -27,16 +28,15 @@ public class FrmAlimentacion : Form
     public DataGridView dgvConsumoDiario = null!;
 
     // Conteos de referencia visual (luego los compañeros los reemplazan con COUNT de MySQL)
-    private readonly int _cantPequenosEjemplo = 20;
-    private readonly int _cantMedianosEjemplo = 15;
-    private readonly int _cantGrandesEjemplo = 10;
-    private readonly decimal _stockActualEjemplo = 120.0m;
+    private int _cantPequenosEjemplo = 0;
+    private int _cantMedianosEjemplo = 0;
+    private int _cantGrandesEjemplo = 0;
+    private decimal _stockActualEjemplo = 0m;
 
     public FrmAlimentacion()
     {
         InicializarComponentes();
-        RecalcularVistaPrevia();
-        CargarDatosEjemplo();
+        CargarDatosReales();
     }
 
     private void InicializarComponentes()
@@ -280,11 +280,11 @@ public class FrmAlimentacion : Form
 
         // Columnas solicitadas
         dgvConsumoDiario.Columns.Add("fecha", "Fecha");
-        dgvConsumoDiario.Columns.Add("pequenos", "Perros Pequeños");
-        dgvConsumoDiario.Columns.Add("medianos", "Medianos");
-        dgvConsumoDiario.Columns.Add("grandes", "Grandes");
-        dgvConsumoDiario.Columns.Add("total_consumido", "Total Consumido (kg)");
-        dgvConsumoDiario.Columns.Add("saldo_restante", "Saldo Restante (kg)");
+        dgvConsumoDiario.Columns.Add("perro", "Perro");
+        dgvConsumoDiario.Columns.Add("alimento", "Alimento");
+        dgvConsumoDiario.Columns.Add("espacio", "");
+        dgvConsumoDiario.Columns.Add("total_consumido", "Consumido (kg)");
+        dgvConsumoDiario.Columns.Add("espacio2", "");
 
         pnlTabla.Controls.Add(dgvConsumoDiario);
 
@@ -333,18 +333,32 @@ public class FrmAlimentacion : Form
         if (totalDiario > 0)
         {
             decimal dias = _stockActualEjemplo / totalDiario;
-            lblAutonomiaEstimada.Text = $"Autonomía con stock de referencia ({_stockActualEjemplo:0.0} kg): {dias:0.1} días";
+            lblAutonomiaEstimada.Text = $"Autonomía con stock de referencia ({_stockActualEjemplo:0.0} kg): {dias:0.0} días";
             lblAutonomiaEstimada.ForeColor = dias < 7m ? Tema.Alerta : Color.FromArgb(39, 174, 96);
         }
     }
 
-    private void CargarDatosEjemplo()
+    private void CargarDatosReales()
     {
-        // Ejemplo tomado del modelo matemático del informe (120 kg iniciales, 12.5 kg/día)
-        dgvConsumoDiario.Rows.Add("21/11/2026", "20", "15", "10", "12.50 kg", "107.50 kg");
-        dgvConsumoDiario.Rows.Add("22/11/2026", "20", "15", "10", "12.50 kg", "95.00 kg");
-        dgvConsumoDiario.Rows.Add("23/11/2026", "20", "15", "10", "12.50 kg", "82.50 kg");
-        dgvConsumoDiario.Rows.Add("24/11/2026", "20", "15", "10", "12.50 kg", "70.00 kg");
-        dgvConsumoDiario.Rows.Add("25/11/2026", "20", "15", "10", "12.50 kg", "57.50 kg");
+        var conteo = AlimentacionService.ContarPerrosPorTamano(out string e1);
+        if (e1 != "") { MessageBox.Show(e1, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+        _cantPequenosEjemplo = conteo[0];
+        _cantMedianosEjemplo = conteo[1];
+        _cantGrandesEjemplo = conteo[2];
+
+        _stockActualEjemplo = AlimentacionService.StockTotalKg(out string e2);
+        if (e2 != "") { MessageBox.Show(e2, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+
+        RecalcularVistaPrevia();
+
+        var lista = AlimentacionService.ListarConsumos(out string e3);
+        if (e3 != "") { MessageBox.Show(e3, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+        dgvConsumoDiario.Rows.Clear();
+        foreach (var c in lista)
+        {
+            dgvConsumoDiario.Rows.Add(c.Fecha.ToString("dd/MM/yyyy"), c.Perro, c.Alimento,
+                "", c.CantidadKg.ToString("0.000") + " kg", "");
+        }
     }
 }

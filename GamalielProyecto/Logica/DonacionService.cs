@@ -3,6 +3,17 @@ using RefugioGamaliel.Datos;
 
 namespace RefugioGamaliel.Logica;
 
+public class DonacionRegistro
+{
+    public int IdDonacion { get; set; }
+    public string Donante { get; set; } = "";
+    public string Tipo { get; set; } = "";
+    public string Alimento { get; set; } = "";
+    public decimal CantidadKg { get; set; }
+    public DateTime Fecha { get; set; }
+    public string RegistradoPor { get; set; } = "";
+}
+
 public static class DonacionService
 {
     // tipoDonante: texto corto, por ejemplo "Persona" o "Empresa".
@@ -95,5 +106,47 @@ public static class DonacionService
             error = "No se pudo registrar la donación: " + ex.Message;
             return false;
         }
+    }
+    public static List<DonacionRegistro> ListarDonaciones(out string error)
+    {
+        error = "";
+        var lista = new List<DonacionRegistro>();
+        var sesion = Sesion.Actual;
+        if (sesion == null) { error = "No hay una sesión iniciada."; return lista; }
+
+        try
+        {
+            using var con = Conexion.ObtenerConexion();
+            con.Open();
+            const string sql = @"SELECT d.id_donacion, dn.nombre_razon_social, dn.tipo_donante,
+                                        a.nombre, d.cantidad_donada_kg, d.fecha_donacion, u.nombre_completo
+                                 FROM donacion d
+                                 JOIN donante dn ON dn.id_donante = d.id_donante
+                                 JOIN alimento a ON a.id_alimento = d.id_alimento
+                                 JOIN usuario u ON u.id_usuario = d.id_usuario
+                                 WHERE dn.id_albergue = @alb
+                                 ORDER BY d.fecha_donacion DESC, d.id_donacion DESC";
+            using var cmd = new MySqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@alb", sesion.IdAlbergue);
+            using var rd = cmd.ExecuteReader();
+            while (rd.Read())
+            {
+                lista.Add(new DonacionRegistro
+                {
+                    IdDonacion = rd.GetInt32(0),
+                    Donante = rd.GetString(1),
+                    Tipo = rd.GetString(2),
+                    Alimento = rd.GetString(3),
+                    CantidadKg = rd.GetDecimal(4),
+                    Fecha = rd.GetDateTime(5),
+                    RegistradoPor = rd.GetString(6)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "No se pudo cargar el historial: " + ex.Message;
+        }
+        return lista;
     }
 }

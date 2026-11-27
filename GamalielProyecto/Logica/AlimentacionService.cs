@@ -168,4 +168,52 @@ public static class AlimentacionService
         }
         return lista;
     }
+
+    // Cantidad de perros por tamaño: [0]=Pequeño, [1]=Mediano, [2]=Grande
+    public static int[] ContarPerrosPorTamano(out string error)
+    {
+        error = "";
+        var r = new int[3];
+        var sesion = Sesion.Actual;
+        if (sesion == null) { error = "No hay una sesión iniciada."; return r; }
+        try
+        {
+            using var con = Conexion.ObtenerConexion();
+            con.Open();
+            const string sql = @"SELECT tamano, COUNT(*) FROM perro
+                                 WHERE id_albergue = @alb GROUP BY tamano";
+            using var cmd = new MySqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@alb", sesion.IdAlbergue);
+            using var rd = cmd.ExecuteReader();
+            while (rd.Read())
+            {
+                int n = Convert.ToInt32(rd.GetValue(1));
+                switch (rd.GetString(0))
+                {
+                    case "Pequeño": r[0] = n; break;
+                    case "Mediano": r[1] = n; break;
+                    case "Grande": r[2] = n; break;
+                }
+            }
+        }
+        catch (Exception ex) { error = "No se pudo contar los perros: " + ex.Message; }
+        return r;
+    }
+
+    public static decimal StockTotalKg(out string error)
+    {
+        error = "";
+        var sesion = Sesion.Actual;
+        if (sesion == null) { error = "No hay una sesión iniciada."; return 0m; }
+        try
+        {
+            using var con = Conexion.ObtenerConexion();
+            con.Open();
+            const string sql = "SELECT COALESCE(SUM(stock_kg), 0) FROM alimento WHERE id_albergue = @alb";
+            using var cmd = new MySqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@alb", sesion.IdAlbergue);
+            return Convert.ToDecimal(cmd.ExecuteScalar());
+        }
+        catch (Exception ex) { error = "No se pudo leer el stock: " + ex.Message; return 0m; }
+    }
 }
