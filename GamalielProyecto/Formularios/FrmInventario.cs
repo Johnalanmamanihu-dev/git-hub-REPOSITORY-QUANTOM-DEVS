@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 using RefugioGamaliel.Utilidades;
+using RefugioGamaliel.Logica;
 
 namespace RefugioGamaliel.Formularios;
 
@@ -25,7 +26,9 @@ public class FrmInventario : Form
     public FrmInventario()
     {
         InicializarComponentes();
-        CargarDatosEjemplo();
+        btnAgregarAlimento.Click += BtnAgregarAlimento_Click;
+        btnActualizarStock.Click += BtnActualizarStock_Click;
+        CargarInventario();
     }
 
     private void InicializarComponentes()
@@ -263,7 +266,7 @@ public class FrmInventario : Form
     {
         if (e.RowIndex < 0) return;
 
-        var fila = dgvInventario.Rows[e.RowIndex];
+        var fila = dgvInventario.Rows[e.RowIndex]; _idSeleccionado = Convert.ToInt32(fila.Cells["id_alimento"].Value);
         txtNombreAlimento.Text = fila.Cells["nombre"].Value?.ToString() ?? string.Empty;
         txtDescripcion.Text = fila.Cells["descripcion"].Value?.ToString() ?? string.Empty;
         txtStockInicial.Text = fila.Cells["stock_kg"].Value?.ToString() ?? string.Empty;
@@ -277,10 +280,67 @@ public class FrmInventario : Form
         txtNombreAlimento.Focus();
     }
 
-    private void CargarDatosEjemplo()
+    private int _idSeleccionado = 0;
+
+    private void CargarInventario()
     {
-        dgvInventario.Rows.Add("1", "Croquetas Adulto", "Saco estándar 25 kg para perros medianos y grandes", "75.00", "kg");
-        dgvInventario.Rows.Add("2", "Alimento Balanceado", "Mezcla nutritiva donada a granel", "30.00", "kg");
-        dgvInventario.Rows.Add("3", "Croquetas Cachorro", "Fórmula especial para perros pequeños y cachorros", "15.00", "kg");
+        var lista = InventarioService.ListarAlimentos(out string error);
+        if (error != "")
+        {
+            MessageBox.Show(error, "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        dgvInventario.Rows.Clear();
+        foreach (var it in lista)
+        {
+            dgvInventario.Rows.Add(it.IdAlimento, it.Nombre, it.Descripcion,
+                it.StockKg.ToString("0.00"), it.UnidadMedida);
+        }
+    }
+    private void BtnAgregarAlimento_Click(object? sender, EventArgs e)
+    {
+        bool ok = InventarioService.RegistrarAlimento(
+            txtNombreAlimento.Text, txtDescripcion.Text, "kg", out string error);
+        if (!ok)
+        {
+            MessageBox.Show(error, "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        MessageBox.Show("Alimento agregado con stock 0. Registre una donación para sumar existencias.",
+            "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        LimpiarFormulario();
+        CargarInventario();
+    }
+
+    private void BtnActualizarStock_Click(object? sender, EventArgs e)
+    {
+        if (_idSeleccionado <= 0)
+        {
+            MessageBox.Show("Seleccione primero un alimento de la tabla.", "Inventario",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (!decimal.TryParse(txtStockInicial.Text.Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out decimal cantidad))
+        {
+            MessageBox.Show("Escriba una cantidad válida en kg.", "Inventario",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var r = MessageBox.Show($"¿Registrar una salida de {cantidad:0.00} kg de este alimento?",
+            "Confirmar salida", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (r != DialogResult.Yes) return;
+
+        if (!InventarioService.RegistrarSalida(_idSeleccionado, cantidad, out string error))
+        {
+            MessageBox.Show(error, "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        _idSeleccionado = 0;
+        LimpiarFormulario();
+        CargarInventario();
     }
 }
