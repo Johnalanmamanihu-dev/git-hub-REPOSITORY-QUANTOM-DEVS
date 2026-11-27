@@ -101,7 +101,7 @@ public class FrmPrincipal : Form
         btnInventario.Click += btnInventario_Click;
         btnAlimentacion.Click += btnAlimentacion_Click;
         btnCerrarSesion.Click += btnCerrarSesion_Click;
-        RefugioGamaliel.Logica.Sesion.Actual = null;
+  
 
         pnlMenuLateral.Controls.AddRange(new Control[]
         {
@@ -198,11 +198,10 @@ public class FrmPrincipal : Form
         if (respuesta != DialogResult.Yes)
             return;
 
-        // TODO: limpiar los datos del usuario en sesión (rol, id, nombre).
+        RefugioGamaliel.Logica.Sesion.Actual = null;
         CerrandoSesion = true;
         Close(); // FrmLogin detecta CerrandoSesion y vuelve a mostrarse
     }
-
     // ═════════════════════════ DIBUJO PERSONALIZADO ═════════════════════════
 
     private void PintarLogo(object? sender, PaintEventArgs e)
