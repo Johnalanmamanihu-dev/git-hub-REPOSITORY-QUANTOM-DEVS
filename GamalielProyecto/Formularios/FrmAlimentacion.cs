@@ -26,6 +26,10 @@ public class FrmAlimentacion : Form
     public Label lblAutonomiaEstimada = null!;
 
     public DataGridView dgvConsumoDiario = null!;
+    public ComboBox cmbPerro = null!;
+    public ComboBox cmbAlimentoConsumo = null!;
+    public NumericUpDown nudGramos = null!;
+    public Button btnRegistrarConsumo = null!;
 
     // Conteos de referencia visual (luego los compañeros los reemplazan con COUNT de MySQL)
     private int _cantPequenosEjemplo = 0;
@@ -241,7 +245,7 @@ public class FrmAlimentacion : Form
             Text = "Registro de Descuentos Diarios Automáticos",
             Font = Tema.Fuente(12f, FontStyle.Bold),
             ForeColor = Tema.TextoPrincipal,
-            Location = new Point(25, 322),
+            Location = new Point(25, 415),
             AutoSize = true
         };
         Controls.Add(lblTablaTitulo);
@@ -249,8 +253,8 @@ public class FrmAlimentacion : Form
         var pnlTabla = new Panel
         {
             BackColor = Color.White,
-            Location = new Point(25, 352),
-            Size = new Size(850, 255),
+            Location = new Point(25, 445),
+            Size = new Size(850, 190),
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
         };
 
@@ -286,6 +290,40 @@ public class FrmAlimentacion : Form
         dgvConsumoDiario.Columns.Add("total_consumido", "Consumido (kg)");
         dgvConsumoDiario.Columns.Add("espacio2", "");
 
+        var pnlConsumo = new Panel
+        {
+            BackColor = Color.White,
+            Location = new Point(25, 322),
+            Size = new Size(850, 80),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+        };
+        pnlConsumo.Controls.Add(new Panel { BackColor = Color.FromArgb(39, 174, 96), Dock = DockStyle.Top, Height = 4 });
+
+        pnlConsumo.Controls.Add(new Label { Text = "Perro:", Location = new Point(15, 14), AutoSize = true, ForeColor = Tema.TextoPrincipal });
+        cmbPerro = new ComboBox { Location = new Point(15, 38), Size = new Size(200, 28), DropDownStyle = ComboBoxStyle.DropDownList, Font = Tema.Fuente(10f) };
+
+        pnlConsumo.Controls.Add(new Label { Text = "Alimento:", Location = new Point(230, 14), AutoSize = true, ForeColor = Tema.TextoPrincipal });
+        cmbAlimentoConsumo = new ComboBox { Location = new Point(230, 38), Size = new Size(200, 28), DropDownStyle = ComboBoxStyle.DropDownList, Font = Tema.Fuente(10f) };
+
+        pnlConsumo.Controls.Add(new Label { Text = "Gramos:", Location = new Point(445, 14), AutoSize = true, ForeColor = Tema.TextoPrincipal });
+        nudGramos = new NumericUpDown { Location = new Point(445, 38), Size = new Size(110, 28), Minimum = 1, Maximum = 5000, Value = 300, Increment = 25, Font = Tema.Fuente(10f), TextAlign = HorizontalAlignment.Right };
+
+        btnRegistrarConsumo = new Button
+        {
+            Text = "Registrar Consumo",
+            BackColor = Color.FromArgb(39, 174, 96),
+            ForeColor = Color.White,
+            Location = new Point(580, 32),
+            Size = new Size(180, 38),
+            FlatStyle = FlatStyle.Flat,
+            Font = Tema.Fuente(10f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnRegistrarConsumo.FlatAppearance.BorderSize = 0;
+        btnRegistrarConsumo.Click += BtnRegistrarConsumo_Click;
+
+        pnlConsumo.Controls.AddRange(new Control[] { cmbPerro, cmbAlimentoConsumo, nudGramos, btnRegistrarConsumo });
+        Controls.Add(pnlConsumo);
         pnlTabla.Controls.Add(dgvConsumoDiario);
 
         Controls.Add(pnlParametros);
@@ -340,6 +378,7 @@ public class FrmAlimentacion : Form
 
     private void CargarDatosReales()
     {
+        CargarCombos();
         var conteo = AlimentacionService.ContarPerrosPorTamano(out string e1);
         if (e1 != "") { MessageBox.Show(e1, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         _cantPequenosEjemplo = conteo[0];
@@ -360,5 +399,46 @@ public class FrmAlimentacion : Form
             dgvConsumoDiario.Rows.Add(c.Fecha.ToString("dd/MM/yyyy"), c.Perro, c.Alimento,
                 "", c.CantidadKg.ToString("0.000") + " kg", "");
         }
+    }
+    private void CargarCombos()
+    {
+        var perros = PerroService.Listar(out string e1);
+        if (e1 != "") MessageBox.Show(e1, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        cmbPerro.DataSource = null;
+        cmbPerro.DisplayMember = "Nombre";
+        cmbPerro.ValueMember = "IdPerro";
+        cmbPerro.DataSource = perros;
+
+        var alimentos = InventarioService.ListarAlimentos(out string e2);
+        if (e2 != "") MessageBox.Show(e2, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        cmbAlimentoConsumo.DataSource = null;
+        cmbAlimentoConsumo.DisplayMember = "Nombre";
+        cmbAlimentoConsumo.ValueMember = "IdAlimento";
+        cmbAlimentoConsumo.DataSource = alimentos;
+    }
+
+    private void BtnRegistrarConsumo_Click(object? sender, EventArgs e)
+    {
+        if (cmbPerro.SelectedValue is not int idPerro)
+        {
+            MessageBox.Show("Seleccione un perro.", "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (cmbAlimentoConsumo.SelectedValue is not int idAlimento)
+        {
+            MessageBox.Show("Seleccione un alimento.", "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!AlimentacionService.RegistrarConsumo(idPerro, idAlimento, nudGramos.Value,
+                DateTime.Now, out string error))
+        {
+            MessageBox.Show(error, "Alimentación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        MessageBox.Show("Consumo registrado y existencias actualizadas.", "Alimentación",
+            MessageBoxButtons.OK, MessageBoxIcon.Information);
+        CargarDatosReales();
     }
 }
